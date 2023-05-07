@@ -1,0 +1,41 @@
+FROM php:7.4-fpm-alpine
+
+WORKDIR ${APP_PATH}
+
+#COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+RUN apk update && apk add --no-cache \
+nginx \
+zip \
+zip \
+libzip \
+libzip-dev \
+libpng \
+libpng-dev \
+php \
+php-fpm \
+php-zip \
+php-gd
+
+#COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+#RUN docker-php-ext-install zip
+#RUN docker-php-ext-install gd
+#RUN docker-php-ext-enable zip
+#RUN docker-php-ext-enable gd
+
+# 7 Add UID '1000' to www-data
+#RUN usermod -u 1000 www-data
+
+CMD ["chmod -R 777 /var/lib/nginx/logs"]
+CMD ["chmod -R 777 /var/lib/nginx/tmp"]
+CMD ["nginx"]
+
+# 9 Change current user to www
+USER www-data
+
+# 10 Expose port 9000 and start php-fpm server
+EXPOSE 9000
+#EXPOSE 80
+CMD ["php-fpm"]
+USER root

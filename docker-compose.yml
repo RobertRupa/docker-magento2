@@ -1,0 +1,173 @@
+version: '3.5'
+
+services:
+  magento:
+    build:
+      context: docker
+      dockerfile: extensions
+    env_file:
+      - '.env'
+    ports:
+      - '80:80'
+    volumes:
+      - './src/:/var/www/html/'
+      - './docker/nginx/default.conf:/etc/nginx/http.d/default.conf'
+      - './docker/nginx/nginx.conf:/etc/nginx/nginx.conf'
+      - './log/nginx:/var/log/nginx/'
+    tmpfs:
+      - ${APP_PATH}/var:exec,nosuid,nodev,size=4G
+    depends_on:
+#      - php-fpm
+#      - mysql
+      - rabbitmq
+      - redis
+      - elasticsearch
+    links:
+#      - php-fpm
+#      - mysql
+      - rabbitmq
+      - redis
+      - elasticsearch
+
+#  php-fpm:
+#    env_file:
+#      - '.env'
+#    build: './docker'
+#    working_dir: '/usr/share/nginx/html'
+#    container_name: php-fpm
+#    links:
+#      - mysql
+#    expose:
+#      - 9003
+#    volumes:
+#      - ./docker/php-dev.ini:/usr/local/etc/php/conf.d/php-dev.ini
+#      - ./docker/php.ini:/usr/local/etc/php/php.ini
+#      - ./log/php:/var/log/php
+#      - ./log/xdebug:/var/log/xdebug'
+#      - appdata:/usr/share/nginx/html/
+#      - ./src/app/code:/usr/share/nginx/html/app/code:delegated
+#      - ./src/app/design:/usr/share/nginx/html/app/design:delegated
+#      - ./src/app/etc:/usr/share/nginx/html/app/etc:delegated
+#      - ./src/pub/media:/usr/share/nginx/html/pub/media:delegated
+#      - ./src/generated:/usr/share/nginx/generated:cached
+#      - ./src/vendor:/usr/share/nginx/html/vendor:cached
+#      - ./src/auth.json:/usr/share/nginx/html/auth.json:cached
+#      - ./src/composer.json:/usr/share/nginx/html/composer.json:cached
+#      - ./src/composer.lock:/usr/share/nginx/html/composer.lock:cached
+##      - ./src/composer.json:/usr/share/nginx/html/composer.json:cached
+##      - ./composer:/usr/share/nginx/html/composer:cached
+##      - ./src/auth.json:/usr/share/nginx/html/auth.json:cached
+##      - ./src/composer.lock:/usr/share/nginx/html/composer.lock:cached
+##      - ./src/default.conf.conf.sample:/usr/share/nginx/html/default.conf.conf:delegated
+
+  rabbitmq:
+    image: rabbitmq:3.7-management-alpine
+    env_file:
+      - '.env'
+    container_name: rabbitmq
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/
+      - rabbitmq-logs:/var/log/rabbitmq/
+    environment:
+      RABBITMQ_DEFAULT_USER: $RABBITMQ_DEFAULT_USER
+      RABBITMQ_DEFAULT_PASS: $RABBITMQ_DEFAULT_PASS
+
+#  mysql:
+#    image: mariadb:10.3.27
+#    env_file:
+#      - '.env'
+#    container_name: mysql
+#    volumes:
+#      - db_data_mysql:/var/lib/mysql
+#    restart: always
+#    command: ["--default-authentication-plugin=mysql_native_password","--wait_timeout=28800","--max_allowed_packet=1GB","--interactive_timeout=28800","--open_files_limit=100000","--innodb_log_file_size=128M","--innodb_buffer_pool_chunk_size=546308096","--innodb_buffer_pool_size=512M"]
+#    environment:
+#      MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+#      MYSQL_DATABASE: $MYSQL_DATABASE
+#      MYSQL_USER: $MYSQL_USER
+#      MYSQL_PASSWORD: $MYSQL_PASSWORD
+#    cap_add:
+#      - SYS_NICE  # CAP_SYS_NICE
+#    ports:
+#      - "3306:3306"
+
+  redis:
+    image: 'bitnami/redis:latest'
+    env_file:
+      - '.env'
+    container_name: redis
+    command: /opt/bitnami/scripts/redis/run.sh --requirepass $REDIS_PASSWORD
+    restart: always
+    environment:
+      - REDIS_PASSWORD=$REDIS_PASSWORD
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+    env_file:
+      - '.env'
+    container_name: elasticsearch
+    restart: always
+    command:
+      - sh
+      - -c
+      - "bin/elasticsearch-plugin list | grep -q analysis-phonetic || bin/elasticsearch-plugin install analysis-phonetic;
+       /usr/local/bin/docker-entrypoint.sh elasticsearch"
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    ports:
+      - 127.0.0.1:9200:9200
+      - 127.0.0.1:9300:9300
+
+#  varnish:
+#    build:
+#      context: docker/varnish
+#      dockerfile: Dockerfile
+#    env_file:
+#      - '.env'
+#    container_name: varnish
+#    hostname: varnish
+#    restart: always
+#    environment:
+#      - VARNISH_OPTS=-n /var/lib/varnish -a :4334 -f /etc/varnish/default.vcl -s malloc,5G -p http_resp_hdr_len=70000 -p http_resp_size=100000 -p workspace_client=256k -p workspace_backend=256k
+##    volumes:
+##      - workdir:/var/lib/varnish
+#    ports:
+#      - "4334:4334"
+
+volumes:
+#  workdir:
+#    driver: local
+#    driver_opts:
+#      type: tmpfs
+#      device: tmpfs
+  appdata:
+    driver: local
+#  db_data_mysql:
+#    driver: local
+  redis-data:
+    driver: local
+  elastic-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
+  rabbitmq-logs:
+    driver: local
